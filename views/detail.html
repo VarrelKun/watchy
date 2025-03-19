@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Watch">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:creator" content="@yourusername">
+    <meta name="twitter:site" content="@Watch">
+    <title>Detail Drama</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0">
+</head>
+<body>
+    <header>
+        <img src="/logo.png">
+        <button onclick="toggle('aside')">
+            <span class="material-symbols-rounded">list</span>
+        </button>
+    </header>
+    <main>
+        <section id="selected" class="active">
+            <div id="details">
+                <p class="loading">Loading...</p> <!-- Efek loading sebelum data dimuat -->
+            </div>
+        </section>
+    </main>
+    <footer>
+        <img src="/logo.png">
+        <p>&copy; 2025 by Watch</p>
+    </footer>
+    <aside>
+        <div>
+            <img src="/logo.png">
+            <h1>Web Stream</h1>
+            <button onclick="toggle('aside')">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div>
+        <hr>
+        <nav>
+            <button onclick="window.location.href='/'">
+                <span class="material-symbols-rounded">home</span>
+                <span>Home</span>
+            </button>
+            <button onclick="window.location.href='/home'">
+                <span class="material-symbols-rounded">grid_view</span>
+                <span>Explore</span>
+            </button>
+        </nav>
+    </aside>
+</body>
+<script>
+function toggle(i) {
+    let body = document.body.classList;
+    body.contains(i) ? body.remove(i) : body.add(i);
+}
+
+async function getDetail() {
+    let slug = window.location.pathname.split('/').pop();
+    let details = document.getElementById('details');
+
+    try {
+        console.log(`Fetching details for slug: ${slug}`); // Debugging
+
+        details.innerHTML = `<p class="loading">Loading...</p>`;
+
+        let res = await fetch(`https://gopal-drakor.vercel.app/api/detail/${slug}`);
+        if (!res.ok) throw new Error(`Failed to fetch data: ${res.status}`);
+
+        let data = await res.json();
+        console.log("API Response:", data); // Debugging
+
+        if (!data.title) throw new Error("Drama not found");
+
+        // Update meta tags dynamically
+        updateMetaTags(data);
+
+        // Buat list episode
+        let episodeButtons = data.episodes.reverse().map(i => 
+            `<button onclick="playEpisode('${i.slug}', '${i.link}')">${data.title} ${i.title}</button>`
+        ).join('');
+
+        // Isi elemen `#details`
+        details.innerHTML = `
+            <img id="cover" src="${data.image}" onclick="playEpisode('${data.episodes[0].slug}', '${data.episodes[0].link}')">
+            <h1>${data.title}</h1>
+            <iframe id="episode" src="" frameborder="0" style="display:none;"></iframe>
+            <sub>${data.synopsis}</sub>
+            <ul>
+                <li><span>Status</span><span>:</span><span>${data.status}</span></li>
+                <li><span>Genre</span><span>:</span><span>${data.genres.join(', ')}</span></li>
+                <li><span>Release</span><span>:</span><span>${data.date}</span></li>
+            </ul>
+            <h2>Episode:</h2>
+            <div class="list">${episodeButtons}</div>`;
+
+        console.log("HTML Updated:", details.innerHTML);
+    } catch (error) {
+        console.error("Error fetching details:", error);
+        details.innerHTML = `<p class="error">Failed to load details. Please try again.</p>`;
+    }
+}
+
+// Fungsi untuk mengganti gambar dengan iframe saat episode diklik
+async function playEpisode(slug) {
+    let cover = document.getElementById("cover");
+    let iframe = document.getElementById("episode");
+    let details = document.getElementById("details");
+
+    try {
+        let res = await fetch(`https://gopal-drakor.vercel.app/api/episode/${slug}`);
+        let data = await res.json();
+        console.log("Episode Data:", data); // Debugging
+
+        // Coba ambil provider TURBOV terlebih dahulu
+        let iframeUrl = data.providers.find(i => i.provider === 'TURBOV')?.iframeUrl;
+
+        // Jika TURBOV tidak tersedia, coba gunakan P2P dengan tambahan URL
+        if (!iframeUrl) {
+            console.warn("TURBOV not found, trying P2P...");
+            let p2pUrl = data.providers.find(i => i.provider === 'P2P')?.iframeUrl;
+            if (p2pUrl) {
+                iframeUrl = `https://playeriframe.lol/?url=${encodeURIComponent(p2pUrl)}`;
+            }
+        }
+
+        // Jika tidak ada provider yang valid, tampilkan error
+        if (!iframeUrl) throw new Error("No valid video provider found");
+
+        console.log("Playing video from:", iframeUrl);
+
+        // Sembunyikan cover, tampilkan iframe
+        cover.style.display = "none";
+        iframe.src = iframeUrl;
+        iframe.style.display = "block";
+
+        // Atur ukuran iframe agar lebih besar
+        iframe.style.width = "100%";
+        iframe.style.maxWidth = "700px";
+        iframe.style.height = "300px";
+
+        // Tambahkan event untuk masuk fullscreen saat video diputar
+        iframe.setAttribute("allowfullscreen", "");
+        iframe.setAttribute("webkitallowfullscreen", "");
+        iframe.setAttribute("mozallowfullscreen", "");
+        iframe.setAttribute("referrerpolicy", "no-referrer");
+
+        // Pastikan margin sudah direset agar iframe tidak terlalu jauh ke bawah
+        details.style.marginTop = "0";
+        details.classList.add("play");
+    } catch (error) {
+        console.error("Error loading episode:", error);
+        alert("Failed to load video. Please try another episode.");
+    }
+}
+
+// Fungsi untuk memperbarui meta tag berdasarkan data drama
+function updateMetaTags(data) {
+    document.title = data.title;
+
+    // Meta tags untuk SEO dan Social Media Sharing
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', `Nonton drakor ${data.title} gratis sub indo. ${data.synopsis}`);
+
+    // Meta Open Graph
+    let metaOgTitle = document.querySelector('meta[property="og:title"]');
+    if (!metaOgTitle) {
+        metaOgTitle = document.createElement('meta');
+        metaOgTitle.setAttribute('property', 'og:title');
+        document.head.appendChild(metaOgTitle);
+    }
+    metaOgTitle.setAttribute('content', data.title);
+
+    let metaOgDescription = document.querySelector('meta[property="og:description"]');
+    if (!metaOgDescription) {
+        metaOgDescription = document.createElement('meta');
+        metaOgDescription.setAttribute('property', 'og:description');
+        document.head.appendChild(metaOgDescription);
+    }
+    metaOgDescription.setAttribute('content', `Nonton drakor ${data.title} gratis sub indo. ${data.synopsis}`);
+
+    let metaOgImage = document.querySelector('meta[property="og:image"]');
+    if (!metaOgImage) {
+        metaOgImage = document.createElement('meta');
+        metaOgImage.setAttribute('property', 'og:image');
+        document.head.appendChild(metaOgImage);
+    }
+    metaOgImage.setAttribute('content', data.image);
+
+    // Meta Twitter
+    let metaTwitterTitle = document.querySelector('meta[name="twitter:title"]');
+    if (!metaTwitterTitle) {
+        metaTwitterTitle = document.createElement('meta');
+        metaTwitterTitle.setAttribute('name', 'twitter:title');
+        document.head.appendChild(metaTwitterTitle);
+    }
+    metaTwitterTitle.setAttribute('content', data.title);
+
+    let metaTwitterDescription = document.querySelector('meta[name="twitter:description"]');
+    if (!metaTwitterDescription) {
+        metaTwitterDescription = document.createElement('meta');
+        metaTwitterDescription.setAttribute('name', 'twitter:description');
+        document.head.appendChild(metaTwitterDescription);
+    }
+    metaTwitterDescription.setAttribute('content', `Nonton drakor ${data.title} gratis sub indo. ${data.synopsis}`);
+
+    let metaTwitterImage = document.querySelector('meta[name="twitter:image"]');
+    if (!metaTwitterImage) {
+        metaTwitterImage = document.createElement('meta');
+        metaTwitterImage.setAttribute('name', 'twitter:image');
+        document.head.appendChild(metaTwitterImage);
+    }
+    metaTwitterImage.setAttribute('content', data.image);
+}
+
+// Pastikan data dimuat saat halaman pertama kali diakses
+document.addEventListener("DOMContentLoaded", getDetail);
+</script>
+</html>
