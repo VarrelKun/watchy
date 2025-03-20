@@ -132,7 +132,7 @@ async function playEpisode(slug) {
         if (!iframeUrl) {
             let p2pUrl = data.providers.find(i => i.provider === 'TURBOV')?.iframeUrl;
             if (p2pUrl) {
-                iframeUrl = `/proxy?url=https://playeriframe.lol/?url=${encodeURIComponent(p2pUrl)}`;
+                iframeUrl = p2pUrl;
             }
         }
 
@@ -154,14 +154,13 @@ async function playEpisode(slug) {
         iframe.setAttribute("webkitallowfullscreen", "");
         iframe.setAttribute("mozallowfullscreen", "");
         iframe.setAttribute("scrolling", "no");
-		iframe.style.overflow = "hidden";
+        iframe.style.overflow = "hidden";
 
         details.style.marginTop = "0";
         details.classList.add("play");
 
-        // Tambahkan event listener untuk orientasi dan fullscreen
+        // Hapus handleFullscreen() agar fullscreen tidak otomatis saat klik episode
         handleOrientation();
-        handleFullscreen();
     } catch (error) {
         console.error("Error loading episode:", error);
 
@@ -170,6 +169,42 @@ async function playEpisode(slug) {
             alert("Failed to load video. Please try another episode.");
         }
     }
+}
+
+// Fungsi untuk masuk ke fullscreen dan paksa rotasi ke landscape
+function handleFullscreen() {
+    let iframe = document.getElementById("episode");
+
+    if (iframe.requestFullscreen) {
+        iframe.requestFullscreen();
+    } else if (iframe.mozRequestFullScreen) { 
+        iframe.mozRequestFullScreen();
+    } else if (iframe.webkitRequestFullscreen) { 
+        iframe.webkitRequestFullscreen();
+    } else if (iframe.msRequestFullscreen) { 
+        iframe.msRequestFullscreen();
+    }
+
+    // Paksa rotasi ke landscape (jika didukung)
+    if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock("landscape").catch(err => console.warn("Gagal mengunci orientasi:", err));
+    }
+}
+
+// Fungsi untuk menangani orientasi layar saat fullscreen
+function handleOrientation() {
+    window.addEventListener("orientationchange", function() {
+        let iframe = document.getElementById("episode");
+        if (window.orientation === 90 || window.orientation === -90) {
+            // Jika landscape, pastikan video memenuhi layar
+            iframe.style.width = "100vw";
+            iframe.style.height = "100vh";
+        } else {
+            // Jika kembali ke portrait, atur ke ukuran default
+            iframe.style.width = "100%";
+            iframe.style.height = "270px";
+        }
+    });
 }
 
 // Update meta tags untuk SEO dan update title halaman
