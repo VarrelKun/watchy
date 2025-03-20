@@ -128,7 +128,7 @@ async function playEpisode(slug) {
         let data = await res.json();
 
         // Mencari URL HYDRAX atau TURBOV
-        let iframeUrl = data.providers.find(i => i.provider === 'VIDHIDE')?.iframeUrl;
+        let iframeUrl = data.providers.find(i => i.provider === 'HYDRAX')?.iframeUrl;
         if (!iframeUrl) {
             let p2pUrl = data.providers.find(i => i.provider === 'TURBOV')?.iframeUrl;
             if (p2pUrl) {
