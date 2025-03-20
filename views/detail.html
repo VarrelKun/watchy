@@ -8,12 +8,13 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:creator" content="@yourusername">
     <meta name="twitter:site" content="@Watch">
-    <title>Watch - Nonton Series/Drama Subtitle Indonesia.</title> <!-- Default title sebelum data di-load -->
+    <title>Watch - Nonton Drama Sub Indo</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
     <header>
@@ -55,13 +56,10 @@
     </aside>
 </body>
 <script>
-// Fungsi toggle untuk membuka atau menutup aside
 function toggle(i) {
-    let body = document.body.classList;
-    body.contains(i) ? body.remove(i) : body.add(i);
+    document.body.classList.toggle(i);
 }
 
-// Fungsi untuk memperbarui atau membuat meta tag
 function setMetaTag(property, content) {
     let meta = document.querySelector(`meta[${property.startsWith('og:') ? 'property' : 'name'}="${property}"]`);
     if (!meta) {
@@ -72,44 +70,44 @@ function setMetaTag(property, content) {
     meta.setAttribute('content', content);
 }
 
-// Fungsi untuk mendapatkan detail drama
 async function getDetail() {
     let slug = window.location.pathname.split('/').pop();
     let details = document.getElementById('details');
 
     try {
-        console.log(`Fetching details for slug: ${slug}`);
-
         details.innerHTML = `<p class="loading">Loading...</p>`;
-
         let res = await fetch(`https://gopal-drakor.vercel.app/api/detail/${slug}`);
         if (!res.ok) throw new Error(`Failed to fetch data: ${res.status}`);
 
         let data = await res.json();
-        console.log("API Response:", data);
-
         if (!data.title) throw new Error("Drama not found");
 
         updateMetaTags(data);
 
         let episodeButtons = data.episodes.reverse().map(i => 
-            `<button onclick="playEpisode('${i.slug}', '${i.link}')">${data.title} ${i.title}</button>`
+            `<button onclick="playEpisode('${i.slug}')">${data.title} ${i.title}</button>`
         ).join('');
 
         details.innerHTML = `
-            <img id="cover" src="${data.image}" onclick="playEpisode('${data.episodes[0].slug}', '${data.episodes[0].link}')">
+            <img id="cover" src="${data.image}" onclick="playEpisode('${data.episodes[0].slug}')">
             <h1>${data.title}</h1>
+            <div id="provider-alert" class="alert-badge" style="display: none;">
+                ⚠️\n
+Jika Video tidak tersedia, silahkan ganti ke provider TURBOV.
+⚠️
+            </div>
             <iframe id="episode" src="" frameborder="0" style="display:none;"></iframe>
+            <div id="provider-selection" style="display: none; margin-top: 10px;">
+                <label for="provider">Select Provider:</label>
+                <select id="provider" onchange="changeProvider()"></select>
+            </div>
             <sub>${data.synopsis}</sub>
             <ul>
                 <li><span>Status</span><span>:</span><span>${data.status}</span></li>
                 <li><span>Genre</span><span>:</span><span>${data.genres.join(', ')}</span></li>
                 <li><span>Release</span><span>:</span><span>${data.date}</span></li>
             </ul>
-            <h2>
-                <span class="material-symbols-rounded">list</span>
-                <span>Episode:</span>
-            </h2>
+            <h2><span class="material-symbols-rounded">list</span> Episode:</h2>
             <div class="list">${episodeButtons}</div>`;
     } catch (error) {
         console.error("Error fetching details:", error);
@@ -117,110 +115,67 @@ async function getDetail() {
     }
 }
 
-// Fungsi untuk memulai episode dan menampilkan iframe
 async function playEpisode(slug) {
     let cover = document.getElementById("cover");
     let iframe = document.getElementById("episode");
     let details = document.getElementById("details");
+    let providerSelection = document.getElementById("provider-selection");
+    let providerAlert = document.getElementById("provider-alert");
+    let providerSelect = document.getElementById("provider");
 
     try {
         let res = await fetch(`https://gopal-drakor.vercel.app/api/episode/${slug}`);
         let data = await res.json();
 
-        // Mencari URL HYDRAX atau TURBOV
-        let iframeUrl = data.providers.find(i => i.provider === 'HYDRAX')?.iframeUrl;
-        if (!iframeUrl) {
-            let p2pUrl = data.providers.find(i => i.provider === 'TURBOV')?.iframeUrl;
-            if (p2pUrl) {
-                iframeUrl = p2pUrl;
-            }
-        }
+        let providers = data.providers.filter(p => ["HYDRAX", "CAST", "TURBOV"].includes(p.provider));
+        if (!providers.length) return alert("No available video provider.");
 
-        // Jika masih tidak ada URL, baru tampilkan error
-        if (!iframeUrl) {
-            throw new Error("No valid video provider found");
-        }
+        let defaultProvider = providers.find(p => p.provider === "HYDRAX") || providers.find(p => p.provider === "TURBOV") || providers[0];
 
-        // Jika ada URL yang valid, atur iframe
+        if (!defaultProvider.iframeUrl) return alert("Failed to load video.");
+
+        providerSelect.innerHTML = providers.map(p => 
+            `<option value="${p.iframeUrl}" ${p.provider === defaultProvider.provider ? "selected" : ""}>${p.provider}</option>`
+        ).join('');
+        providerSelection.style.display = providers.length > 1 ? "block" : "none";
+
+        updateIframe(defaultProvider.iframeUrl);
+
         cover.style.display = "none";
-        iframe.src = `/bypass?url=https://playeriframe.lol/?url=${encodeURIComponent(iframeUrl)}`;
-        iframe.style.display = "block";
-        
-        iframe.style.width = "100%";
-        iframe.style.maxWidth = "700px";
-        iframe.style.height = "270px";
+        details.style.margin = "-5px"; // 🚀 Set margin jadi 0 saat iframe muncul
+        providerAlert.style.display = "block"; // 🚀 Munculkan alert
 
-        iframe.setAttribute("allowfullscreen", "");
-        iframe.setAttribute("webkitallowfullscreen", "");
-        iframe.setAttribute("mozallowfullscreen", "");
-        iframe.setAttribute("scrolling", "no");
-        iframe.style.overflow = "hidden";
-
-        details.style.marginTop = "0";
-        details.classList.add("play");
-
-        // Hapus handleFullscreen() agar fullscreen tidak otomatis saat klik episode
-        handleOrientation();
     } catch (error) {
         console.error("Error loading episode:", error);
-
-        // Hanya tampilkan pop-up jika iframe tidak muncul
-        if (!iframe.src || iframe.src === "about:blank") {
-            alert("Failed to load video. Please try another episode.");
-        }
+        alert("Failed to load video. Please try again.");
     }
 }
 
-// Fungsi untuk masuk ke fullscreen dan paksa rotasi ke landscape
-function handleFullscreen() {
+function changeProvider() {
+    let providerSelect = document.getElementById("provider");
+    updateIframe(providerSelect.value);
+}
+
+function updateIframe(url) {
     let iframe = document.getElementById("episode");
-
-    if (iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-    } else if (iframe.mozRequestFullScreen) { 
-        iframe.mozRequestFullScreen();
-    } else if (iframe.webkitRequestFullscreen) { 
-        iframe.webkitRequestFullscreen();
-    } else if (iframe.msRequestFullscreen) { 
-        iframe.msRequestFullscreen();
-    }
-
-    // Paksa rotasi ke landscape (jika didukung)
-    if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock("landscape").catch(err => console.warn("Gagal mengunci orientasi:", err));
-    }
+    iframe.src = `/bypass?url=https://playeriframe.lol/?url=${encodeURIComponent(url)}`;
+    iframe.style.display = "block";
+    iframe.style.width = "100%";
+    iframe.style.maxWidth = "700px";
+    iframe.style.height = "270px";
+    iframe.style.overflow = "hidden";
+    iframe.setAttribute("allowfullscreen", "");
+    iframe.setAttribute("scrolling", "no");
 }
 
-// Fungsi untuk menangani orientasi layar saat fullscreen
-function handleOrientation() {
-    window.addEventListener("orientationchange", function() {
-        let iframe = document.getElementById("episode");
-        if (window.orientation === 90 || window.orientation === -90) {
-            // Jika landscape, pastikan video memenuhi layar
-            iframe.style.width = "100vw";
-            iframe.style.height = "100vh";
-        } else {
-            // Jika kembali ke portrait, atur ke ukuran default
-            iframe.style.width = "100%";
-            iframe.style.height = "270px";
-        }
-    });
-}
-
-// Update meta tags untuk SEO dan update title halaman
 function updateMetaTags(data) {
-    let titleText = `Watch - ${data.title}`;
-    document.title = titleText;
-
+    document.title = `Watch - ${data.title}`;
     setMetaTag('description', `Nonton ${data.title} sub Indo gratis. ${data.synopsis}`);
-    setMetaTag('og:title', titleText);
+    setMetaTag('og:title', document.title);
     setMetaTag('og:description', `Nonton ${data.title} sub Indo gratis. ${data.synopsis}`);
     setMetaTag('og:image', data.image);
-    setMetaTag('og:type', 'website');
-    setMetaTag('og:site_name', 'Watch');
 }
 
-// Memanggil getDetail saat halaman dimuat
 document.addEventListener("DOMContentLoaded", getDetail);
 </script>
 </html>
