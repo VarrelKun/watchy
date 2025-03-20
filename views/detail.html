@@ -8,7 +8,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:creator" content="@yourusername">
     <meta name="twitter:site" content="@Watch">
-    <title>Watch - Streaming Drakor Subtitle Indonesia.</title> <!-- Default title sebelum data di-load -->
+    <title>Watch - Loading...</title> <!-- Default title sebelum data di-load -->
     <link rel="stylesheet" href="/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -106,7 +106,10 @@ async function getDetail() {
                 <li><span>Genre</span><span>:</span><span>${data.genres.join(', ')}</span></li>
                 <li><span>Release</span><span>:</span><span>${data.date}</span></li>
             </ul>
-            <h2>Episode:</h2>
+            <h2>
+                <span class="material-symbols-rounded">list</span>
+                <span>Episode:</span>
+            </h2>
             <div class="list">${episodeButtons}</div>`;
     } catch (error) {
         console.error("Error fetching details:", error);
@@ -150,6 +153,8 @@ async function playEpisode(slug) {
         iframe.setAttribute("allowfullscreen", "");
         iframe.setAttribute("webkitallowfullscreen", "");
         iframe.setAttribute("mozallowfullscreen", "");
+        iframe.setAttribute("scrolling", "no");
+		iframe.style.overflow = "hidden";
 
         details.style.marginTop = "0";
         details.classList.add("play");
